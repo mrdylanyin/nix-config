@@ -10,21 +10,38 @@
   genSpecialArgs,
   ...
 } @ args: let
-  name = "vm";
+  name = "nix-vm-arm";
   base-modules = {
     nixos-modules = map mylib.relativeToRoot [
       # common
       # "secrets/nixos.nix"
       "modules/nixos/desktop.nix"
       # host specific
-      "hosts/idols-${name}"
+      "hosts/${name}"
     ];
     home-modules = map mylib.relativeToRoot [
       # common
       "home/linux/gui.nix"
       # host specific
-      "hosts/idols-${name}/home.nix"
+      "hosts/${name}/home.nix"
     ];
+  };
+
+  modules-hyprland = {
+    nixos-modules =
+      [
+        {
+          modules.desktop.wayland.enable = true;
+          modules.secrets.desktop.enable = true;
+          modules.secrets.impermanence.enable = true;
+        }
+      ]
+      ++ base-modules.nixos-modules;
+    home-modules =
+      [
+        {modules.desktop.hyprland.enable = true;}
+      ]
+      ++ base-modules.home-modules;
   };
 
   modules-gnome = {
@@ -45,12 +62,15 @@
   };
 in {
   nixosConfigurations = {
-    # host with GNOME desktop
+    # host with hyprland compositor
+    "${name}-hyprland" = mylib.nixosSystem (modules-hyprland // args);
+    # host with gnome desktop
     "${name}-gnome" = mylib.nixosSystem (modules-gnome // args);
   };
 
   # generate iso image for hosts with desktop environment
   packages = {
+    "${name}-hyprland" = inputs.self.nixosConfigurations."${name}-hyprland".config.formats.iso;
     "${name}-gnome" = inputs.self.nixosConfigurations."${name}-gnome".config.formats.iso;
   };
 }
